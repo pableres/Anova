@@ -1,0 +1,113 @@
+#Cargar y utilizar función IPAK
+#ver vídeo https://www.youtube.com/watch?v=UjQz9SxG9rk
+
+ipak <- function(pkg){
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+#psycho ahora es report
+packages <- c("effectsize","haven", "apaTables", "DescTools","report","dplyr","rstatix","FSA","rcompanion","tidyBF")
+ipak(packages)
+
+#el nuevo paquete report aún no está en CRAN así que lo llamo manualmente
+#cuando lo instaleis tenéis que pulsar 1 y 1(cuando os pregunte) 
+devtools::install_github("easystats/report") 
+library(report)
+#Importar datos
+setwd('C:/Users/pable/Desktop/You tube/Anova')
+Anova <- read_sav("Anova.sav")
+View(Anova)
+
+Anova$edad<-as.factor(Anova$edad)
+
+#Anova paramétrico
+objeto<-aov(Anova$ASF ~ Anova$edad)
+summary(objeto)
+plot(objeto)
+report(objeto)
+
+#post hoc
+PostHocTest(aov(Anova$ASF ~ Anova$edad), method = "hsd",
+            conf.level=NA)
+TukeyHSD(objeto)
+plot(TukeyHSD(objeto))
+
+#descriptivos
+apa.1way.table(edad,ASF,Anova)
+
+FSA::Summarize(ASF ~ edad,
+          data=Anova,
+          digits=2)
+
+lm_output <- lm(ASF ~ edad, data = Anova)
+apa.aov.table(lm_output,filename="pokemen2.doc",table.number = 4)
+
+#Tamaños de efecto
+eta_cuadrado <- 5809.37/(5809.37 + 56151.10)
+eta_cuadrado
+
+ome<-effectsize::omega_squared(objeto)
+ome
+epsilon_squared(objeto)
+cohens_f(objeto)
+
+interpret_omega_squared(ome, rules = "field2013")
+
+#anova no parametrico
+
+kruskal.test(ASF ~ edad, data = Anova)
+
+#Posthoc no paramétrico
+pairwise.wilcox.test(Anova$ASF, Anova$edad,
+                     p.adjust.method = "BH")
+#o
+dunnTest(ASF ~ edad,
+         data=Anova,
+         method="bh")
+
+#tamaño del efecto Anova no parametrico
+#eta
+Anova %>%
+kruskal_effsize(ASF ~ edad)
+
+#epsilon
+epsilonSquared(x = Anova$ASF,
+               g = Anova$edad)
+#theta creo que no lidia bien con los casos perdidos ;)
+freemanTheta(x = Anova$ASF,
+             g = Anova$edad)
+
+#tamaño del efecto de los de los posthoc no paramétricos.
+multiVDA(x = Anova$ASF,
+         g = Anova$edad)
+
+#anovas bayesianos!!!
+bf_oneway_anova(data = Anova, x = edad, y = ASF)
+
+#a graficar
+ggstatsplot::ggbetweenstats(
+  data = Anova,
+  x = edad,
+  y = ASF,
+  plot.type = "violin", # type of plot también se puede "box" o "violin"
+  notch = TRUE, # box plot cuadrado o ovalado (notch)
+  mean.ci = TRUE, # Intervalos de confianza para las medias
+  type = "r", #"p" (para parametrica), "np" (no parametrica), "r" (robusta), or "bf" (bayes factor)
+  effsize.type = "partial_omega",# hay "biased" (equivalente a la d cohen del t test), "partial_eta" (eta-squared para anova) o "unbiased" (equivalente a "g" Hedge's g para t-test, "partial_omega"(omega-squared para anova)
+  k = 2, # cuántos decimales?
+  pairwise.comparisons = TRUE, # Muestra las comparaciones post hoc
+  p.adjust.method = "bonferroni", # método para utilizar las post hoc. esta: "holm", "hochberg", "hommel", "bonferroni", "BH", "BY", "fdr", "none"
+  pairwise.display = "s", # "s" solo te muestra las que son significativas, "ns" muestra no significativas, "all" pues todas ;)
+  outlier.tagging = TRUE, # mostrar outliers
+  outlier.coef = 1.5, # coeficiente para considerarlo outlier siguiendo la Tukey's rule
+  xlab = "rótulo del eje x", 
+  ylab = "rótulo del eje y",
+  title = "Anova de un factor", # Título del plot
+  ggtheme = ggthemes::theme_economist(), # cambiar el fondo del gráfico
+  ggstatsplot.layer = FALSE, # turn off `ggstatsplot` theme layer
+  package = "wesanderson", # elegir el paquete asociado a la paleta de colores.
+  palette = "Darjeeling1", # cambiar la paleta
+  messages = FALSE
+)
